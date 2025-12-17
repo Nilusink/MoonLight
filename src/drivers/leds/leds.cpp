@@ -1,23 +1,76 @@
 #include "leds.hpp"
 
 
-uint32_t scaleColor(uint32_t color, uint8_t brightness) {
-  uint8_t r = (color >> 16) & 0xFF;
-  uint8_t g = (color >> 8)  & 0xFF;
-  uint8_t b = color & 0xFF;
+constexpr uint32_t scaleColor(uint32_t color, uint8_t brightness)
+{
+    // convert to seperate rgb variables
+    uint8_t r = (color >> 16) & 0xFF;
+    uint8_t g = (color >> 8)  & 0xFF;
+    uint8_t b = color & 0xFF;
 
-  r = (r * brightness) / 255;
-  g = (g * brightness) / 255;
-  b = (b * brightness) / 255;
+    // scale colors
+    r = (r * brightness) / 255;
+    g = (g * brightness) / 255;
+    b = (b * brightness) / 255;
 
-  return Adafruit_NeoPixel::Color(r, g, b);
+  return rgb(r, g, b);
 }
 
 
 using namespace actors;
+void LEDs::setPixelColor(uint16_t n, color_t c)
+{
+    pixel_color[n] = c;
+    strip_.setPixelColor(n, scaleColor(c, pixel_brightness[n]));
+}
+
+void LEDs::fill(color_t c, bool keep_brightness)
+{
+    // set all pixels to same color
+    for (int i = 0; i < num_leds; i++)
+    {
+        pixel_color[i] = c;
+
+        if (keep_brightness)
+            strip_.setPixelColor(i, scaleColor(c, pixel_brightness[i]));
+    }
+
+    if (!keep_brightness)
+        strip_.fill(c);
+}
+
+void LEDs::setBrightness(uint8_t b)
+{
+    for (int i = 0; i < num_leds; i++)
+    {
+        pixel_brightness[i] = b;
+    }
+}
+void LEDs::re_render()
+{
+    for (int i = 0; i < num_leds; i++)
+    {
+        strip_.setPixelColor(i, scaleColor(pixel_color[i], pixel_brightness[i]));
+    }
+    strip_.show();
+}
+
+
 LEDs::LEDs(uint16_t numLeds, uint8_t pin, uint8_t ww_pin)
     : strip_(numLeds, pin, NEO_RGB + NEO_KHZ800), num_leds(numLeds)
-{}
+{
+    // catch out-of-bounds
+    if (numLeds > MAX_PIXEL_N)
+    {
+        Serial.printf(
+            "spezified numLeds of %d exceeds predefined limit of %d\n",
+            numLeds,
+            MAX_PIXEL_N
+        );
+
+        for(;;);
+    }
+}
 
 void LEDs::begin()
 {
@@ -25,32 +78,144 @@ void LEDs::begin()
     pinMode(ww_pin, OUTPUT);
     strip_.begin();
     strip_.show(); // clear LEDs
+    strip_.setBrightness(255);
 }
 
-void LEDs::set_brightness(uint8_t brightness)
+void LEDs::set_brightness(uint8_t brightness, bool show)
 {
-    last_brightness = brightness;
-    strip_.setBrightness(constrain(brightness, 0, 255));
-    strip_.show();
-
-    // set warm white status
-    // if (ww_status)
-    // {
-    //     analogWrite(ww_pin, last_brightness);
-    // }
+    setBrightness(constrain(brightness, 0, 255));
+    if (show)
+        strip_.show();
 }
+
+void LEDs::set_pixel_brightness(uint16_t pixel, uint8_t brightness)
+{
+    pixel_brightness[pixel] = brightness;
+    pixel_color[pixel] = scaleColor(pixel_color[pixel], brightness);
+}
+
 void LEDs::brightness_up()
 {
-    uint8_t brightness = strip_.getBrightness();
-    brightness = constrain((int)brightness + 8, 0, 255);
-    set_brightness(brightness);
+    for (int i = 0; i < num_leds; i ++)
+    {
+        pixel_brightness[i] = constrain((int)pixel_brightness[i] + 8, 0, 255);
+    }
 }
+
 void LEDs::brightness_down()
 {
-    uint8_t brightness = strip_.getBrightness();
-    brightness = constrain((int)brightness - 8, 1, 255);
-    set_brightness(brightness);
+    for (int i = 0; i < num_leds; i ++)
+    {
+        pixel_brightness[i] = constrain((int)pixel_brightness[i] - 8, 1, 255);
+    }
 }
+
+void LEDs::anim_brightness(
+    uint8_t start,
+    uint8_t end,
+    double time,
+    anim_t(anim),
+    double resolution
+)
+{
+    if (end == start)
+        return;
+
+    bool is_reversed = end < start;
+    uint16_t d = time / resolution;
+    uint8_t anim_range = abs((int)end-start);
+
+    double anim_progress, brightness;
+    for (int i = 0; i < resolution; i++)
+    {
+        // fade in-out
+        anim_progress = anim((double)i/resolution) * anim_range;
+
+        if (is_reversed)
+        {
+            brightness = start - anim_progress;
+        }
+        else
+        {
+            brightness = start + anim_progress;
+        }
+
+        set_brightness((uint8_t)brightness);
+        strip_.show();
+
+        delay(d);
+    }
+    set_brightness(end);
+    strip_.show();
+}
+void LEDs::anim_brightness(
+    uint8_t start,
+    uint8_t end,
+    double time,
+    double resolution
+)
+{
+    anim_brightness(start, end, time, &animations::linear, resolution);
+}
+
+void LEDs::anim_pixel_brightness(
+    double start,
+    double end,
+    double time,
+    anim_t(anim),
+    double resolution,
+    bool override_brightness
+)
+{
+    if (end == start)
+        return;
+
+    if (0 > start || start > 1)
+    {
+        Serial.printf("apb start oor: %f\n", start);
+        start = constrain(start, 0, 1);
+    }
+    if (0 > end || end > 1)
+    {
+        Serial.printf("apb end oor: %f\n", end);
+        end = constrain(end, 0, 1);
+    }
+
+    bool is_reversed = end < start;
+    uint16_t d = time / resolution;
+    double anim_range = abs(end-start);
+
+    double anim_progress, brightness;
+    for (int i = 0; i < resolution; i++)
+    {
+        // fade in-out
+        anim_progress = anim((double)i/resolution) * anim_range;
+
+        if (is_reversed)
+        {
+            anim_progress = start - anim_progress;
+        }
+        else
+        {
+            anim_progress = start + anim_progress;
+        }
+
+        // scale each pixel color
+        for (int p = 0; p < num_leds; p++)
+        {
+            brightness = pixel_brightness[p] * anim_progress;
+            strip_.setPixelColor(p, scaleColor(pixel_color[p], brightness));
+        }
+        strip_.show();
+
+        delay(d);
+    }
+    if (override_brightness)
+        set_brightness(end);
+
+    strip_.show();
+}
+
 
 void LEDs::toggle_ww()
 {
@@ -70,13 +235,73 @@ void LEDs::toggle_ww()
     }
 }
 
-void LEDs::set_all(uint32_t color)
+
+void LEDs::save_segment_colors()
 {
-    set_brightness(last_brightness);
-    last_color = color;
-    strip_.fill(color);
-    strip_.show();
+    // save color from first pixel from each segment
+    for (int s = 0; s < 4; s++)
+    {
+        saved_colors[s] = pixel_color[segment_positions[s][1]];
+        Serial.printf("segment %d: %X \n", s, saved_colors[s]);
+    }
 }
+
+void LEDs::reload_segment_colors(bool show)
+{
+    uint8_t s;
+    for (uint8_t ns = 0; ns < 4; ns++)
+    {
+        s = 3 - ns;
+        set_segment(s, saved_colors[s], false);
+    }
+
+    if (show)
+        strip_.show();
+}
+
+void LEDs::set_all(uint32_t color, bool show)
+{
+    fill(color);
+
+    if (show)
+        strip_.show();
+}
+
+void LEDs::set_pixels(uint8_t start, uint8_t end, uint32_t color, bool show)
+{
+    for (int i = start; i <= end; i++)
+    {
+        setPixelColor(i, color);
+    }
+
+    if (show)
+        strip_.show();
+}
+
+void LEDs::set_segment(SEGMENTS segment, color_t color, bool show)
+{
+    for (
+        int i = segment_positions[segment][0];
+        i <= segment_positions[segment][1];
+        i++
+    )
+    {
+        setPixelColor(i, color);
+    }
+    
+    if (show)
+        strip_.show();
+}
+void LEDs::set_segment(uint8_t segment, color_t color, bool show)
+{
+    set_segment(segment_from_int(segment), color, show);
+}
+
+void LEDs::clear()
+{
+    strip_.clear();
+}
+
 
 void LEDs::set_temperature(float tempC)
 {
@@ -102,71 +327,133 @@ void LEDs::set_temperature(float tempC)
     set_all(strip_.gamma32(rawColor));
 }
 
+
 void LEDs::set_remote(ir_protocols::SmallRemote::Buttons button)
 {
-    switch (button)
+    if (segment_control)
     {
-    case ir_protocols::SmallRemote::Buttons::On:
-        set_brightness(last_brightness);
-        set_all(last_color);
-        break;
-    case ir_protocols::SmallRemote::Buttons::Off:
-        off();
-        break;
-    case ir_protocols::SmallRemote::Buttons::Brighter:
-        brightness_up();
-        break;
-    case ir_protocols::SmallRemote::Buttons::Dimmer:
-        brightness_down();
-        break;
-    case ir_protocols::SmallRemote::Buttons::Red:
-        set_all(Color(255, 0, 0));
-        break;
-    case ir_protocols::SmallRemote::Buttons::Green:
-        set_all(Color(0, 255, 0));
-        break;
-    case ir_protocols::SmallRemote::Buttons::Blue:
-        set_all(Color(0, 0, 255));
-        break;
-    case ir_protocols::SmallRemote::Buttons::White:
-        set_all(Color(255, 255, 255));
-        break;
-    case ir_protocols::SmallRemote::Buttons::R1:
-        set_all(Color(255, 40, 0));
-        break;
-    case ir_protocols::SmallRemote::Buttons::Action1:
-        toggle_ww();
-        break;
-    case ir_protocols::SmallRemote::Buttons::Action3:
-        void_fade();
-        break;
-    default:
-        break;
+        switch (button)
+        {
+            case ir_protocols::SmallRemote::Buttons::Brighter:
+                if (current_segment < 3)
+                    current_segment++;
+                break;
+        
+            case ir_protocols::SmallRemote::Buttons::Dimmer:
+                if (current_segment > 0)
+                    current_segment--;
+                break;
+
+            case ir_protocols::SmallRemote::Buttons::Action1:
+                set_segment_control(false);
+                return;
+
+            default:
+                // try to match button to color
+                color_t btn_color = button_to_color(button);
+                if (btn_color)
+                {
+                    saved_colors[current_segment] = btn_color;
+                }
+                break;
+        }
+        clear();
+        set_segment(current_segment, saved_colors[current_segment]);
     }
+    else
+    {
+        switch (button)
+        {
+            case ir_protocols::SmallRemote::Buttons::On:
+                on();
+                break;
+
+            case ir_protocols::SmallRemote::Buttons::Off:
+                off();
+                break;
+
+            case ir_protocols::SmallRemote::Buttons::Brighter:
+                brightness_up();
+                break;
+
+            case ir_protocols::SmallRemote::Buttons::Dimmer:
+                brightness_down();
+                break;
+
+            case ir_protocols::SmallRemote::Buttons::Action1:
+                set_segment_control(true);
+                break;
+
+            case ir_protocols::SmallRemote::Buttons::Action3:
+                void_fade();
+                break;
+
+            default:
+                // try to match button to color
+                color_t btn_color = button_to_color(button);
+
+                // check if button color is non-zero
+                if (btn_color)
+                {
+                    set_all(btn_color);
+                }
+                break;
+        }
+    }
+}
+
+
+void LEDs::on()
+{
+    anim_pixel_brightness(0, 1, 500, &animations::Fade::InOut, 100, true);
 }
 
 void LEDs::off()
 {
+    anim_pixel_brightness(1, 0, 500, &animations::Fade::InOut, 100, false);
     strip_.clear();
-    strip_.show();
 }
+
 
 uint32_t LEDs::Color(uint8_t r, uint8_t g, uint8_t b)
 {
-    return strip_.Color(r, g, b);
+    return rgb(r, g, b);
 }
+
 
 void LEDs::void_fade()
 {
-    uint32_t current_color = strip_.getPixelColor(0);
     for (int fade = -16; fade < num_leds + 16; fade++)
     {
         for (int i = 0; i < num_leds; i++)
         {
-            uint8_t pixel_brightness = constrain((i - fade) * 16, 0, 255);
-            strip_.setPixelColor(i, scaleColor(current_color, pixel_brightness));
+            uint8_t b = constrain((i - fade) * 16, 0, 255);
+            set_pixel_brightness(i, b);
         }
         strip_.show();
         delay(30);
     }
+}
+
+void LEDs::set_segment_control(bool state)
+{
+    segment_control = state;
+    Serial.printf("segment control: %d \n", segment_control);
+
+    // enter / exit hooks
+    if (segment_control)
+    {
+        save_segment_colors();
+        clear();
+        set_segment(current_segment, saved_colors[current_segment]);
+    }
+    else
+    {
+        reload_segment_colors();
+    }
+}
+
+void LEDs::toggle_segment_control()
+{
+    set_segment_control(!segment_control);
 }

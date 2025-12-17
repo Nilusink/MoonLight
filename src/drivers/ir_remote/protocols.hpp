@@ -1,5 +1,16 @@
+/**
+ * @file protocols.hpp
+ * @author Nilusink
+ * @brief IR-remote button definitions
+ * @version 0.1
+ * @date 2025-12-14
+ * 
+ * @copyright Copyright (c) Nilusink 2025
+ * 
+ */
 #pragma once
 #include <Arduino.h>
+
 
 namespace ir_protocols
 {

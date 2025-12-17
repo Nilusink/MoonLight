@@ -15,7 +15,7 @@
 #define IR_PIN D7
 #define LED_PIN D6
 #define WW_PIN D5
-#define NUM_LEDS 42
+#define NUM_LEDS 35
 
 
 sensors::IRRemote remote(IR_PIN);
@@ -25,34 +25,34 @@ actors::LEDs strip(NUM_LEDS, LED_PIN, WW_PIN);
 // -------------------- Setup --------------------
 void setup()
 {
-    Serial.begin(115200);
+    Serial.begin(9600);
 
     strip.begin();
     strip.set_brightness(20);
 
     // Connect to WiFi
-    strip.set_all(strip.Color(0, 0, 255));
-    WiFi.begin(SSID, PASSWORD);
+    // strip.set_all(strip.Color(0, 0, 255));
+    // WiFi.begin(SSID, PASSWORD);
 
-    Serial.println("Connecting ...");
-    bool ledState = true;
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(100);
-        Serial.print(".");
-        if (ledState)
-        {
-            strip.set_all(strip.Color(0, 0, 255));
-        }
-        else
-        {
-            strip.off();
-        }
-        ledState = !ledState;
-    }
+    // Serial.println("Connecting ...");
+    // bool ledState = true;
+    // while (WiFi.status() != WL_CONNECTED)
+    // {
+    //     delay(100);
+    //     Serial.print(".");
+    //     if (ledState)
+    //     {
+    //         strip.set_all(strip.Color(0, 0, 255));
+    //     }
+    //     else
+    //     {
+    //         strip.off();
+    //     }
+    //     ledState = !ledState;
+    // }
 
-    Serial.print("\nConnected with IP address: ");
-    Serial.println(WiFi.localIP());
+    // Serial.print("\nConnected with IP address: ");
+    // Serial.println(WiFi.localIP());
 
     Serial.println("Setup done");
     strip.set_all(strip.Color(0, 255, 0));
@@ -62,14 +62,17 @@ void setup()
     strip.set_all(strip.Color(0, 255, 0));
     delay(200);
     strip.set_brightness(128);
-    strip.off();
+    strip.set_all(strip.Color(255, 80, 10));
+    // strip.off();
 }
 
 // -------------------- Main Loop --------------------
 ir_protocols::SmallRemote::Buttons last_button = ir_protocols::SmallRemote::Buttons::Off;
+bool in_segment_control = false;
+uint8_t current_segment = 0;
 void loop()
 {
-    if (remote.decode(&results))
+    if (remote.decode(&results) && true)
     {
         ir_protocols::SmallRemote::Buttons btn = static_cast<ir_protocols::SmallRemote::Buttons>(results.value);
 
