@@ -132,8 +132,8 @@ namespace actors
 
         void void_fade();
 
-        void on();
-        void off();
+        void on(bool instant = false);
+        void off(bool instant = false);
 
         color_t Color(uint8_t r, uint8_t g, uint8_t b);
     };

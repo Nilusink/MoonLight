@@ -456,16 +456,16 @@ void LEDs::set_remote(ir_protocols::SmallRemote::Buttons button)
 }
 
 
-void LEDs::on()
+void LEDs::on(bool instant)
 {
-    anim_pixel_brightness(0, 1, 500, &animations::Fade::InOut, 100, false);
+    anim_pixel_brightness(0, 1, instant ? 1 : 500, &animations::Fade::InOut, 100, false);
     save_segment_colors();
 }
 
-void LEDs::off()
+void LEDs::off(bool instant)
 {
     save_segment_colors();
-    anim_pixel_brightness(1, 0, 500, &animations::Fade::InOut, 100, false);
+    anim_pixel_brightness(1, 0, instant ? 1 : 500, &animations::Fade::InOut, 100, false);
     strip_.clear();
 }
 

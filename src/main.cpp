@@ -57,13 +57,13 @@ void setup()
     Serial.println("Setup done");
     strip.set_all(strip.Color(0, 255, 0));
     delay(200);
-    strip.off();
+    strip.off(true);
     delay(200);
     strip.set_all(strip.Color(0, 255, 0));
     delay(200);
-    strip.set_brightness(128);
     strip.set_all(strip.Color(255, 80, 10));
-    // strip.off();
+    strip.set_brightness(128);
+    strip.off(true);
 }
 
 // -------------------- Main Loop --------------------
