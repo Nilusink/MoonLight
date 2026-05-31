@@ -116,9 +116,15 @@ namespace actors
 
         void set_all(color_t color, bool show=true);
         void set_pixels(uint8_t start, uint8_t end, color_t color, bool show=true);
-        void set_segment(SEGMENTS segment, color_t color, bool show=true);
-        void set_segment(uint8_t segment, color_t color, bool show=true);
         void clear();
+
+        void set_segment_color(SEGMENTS segment, color_t color, bool show=true);
+        void set_segment_color(uint8_t segment, color_t color, bool show=true);
+
+        void set_segment_brightness(SEGMENTS segment, uint8_t brightness, bool show=true);
+        void set_segment_brightness(uint8_t segment, uint8_t brightness, bool show=true);
+
+        void render_segment(SEGMENTS segment);
 
         void set_temperature(float tempC);
 
