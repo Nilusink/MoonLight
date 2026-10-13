@@ -2,6 +2,7 @@
 #include "drivers/ir_remote/protocols.hpp"
 #include "drivers/animations.hpp"
 #include "colors.hpp"
+#include "web_leds.hpp"
 
 
 #define MAX_PIXEL_N 64
@@ -13,6 +14,7 @@ namespace actors
     {
     private:
         Adafruit_NeoPixel strip_;
+        WebLEDs wleds;
 
         uint16_t num_leds;
         uint8_t ww_pin;

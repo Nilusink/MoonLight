@@ -414,10 +414,12 @@ void LEDs::set_remote(ir_protocols::SmallRemote::Buttons button)
         switch (button)
         {
             case ir_protocols::SmallRemote::Buttons::On:
+                wleds.on();
                 on();
                 break;
 
             case ir_protocols::SmallRemote::Buttons::Off:
+                wleds.off();
                 off();
                 break;
 
@@ -433,6 +435,10 @@ void LEDs::set_remote(ir_protocols::SmallRemote::Buttons button)
 
             case ir_protocols::SmallRemote::Buttons::Action1:
                 set_segment_control(true);
+                break;
+
+            case ir_protocols::SmallRemote::Buttons::Action2:
+                wleds.toggle_segment();
                 break;
 
             case ir_protocols::SmallRemote::Buttons::Action3:

@@ -2,13 +2,18 @@
 #include "drivers/leds/leds.hpp"
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
+#include <ArduinoOTA.h>
 #include <Arduino.h>
 
 
 // -------------------- WiFi Configuration --------------------
 #define SSID "IoT"
 #define PASSWORD "Gosse69420"
-#define SERVER_ADDRESS "http://192.168.68.52:12345/device/0/data/weather"
+
+#define LOCAL_IP 192, 168, 69, 101
+#define GATEWAY 192, 168, 68, 1
+#define SUBNET 255, 255, 254, 0
+#define DNS 1, 1, 1, 1
 
 
 // -------------------- LED Configuration --------------------
@@ -31,28 +36,37 @@ void setup()
     strip.set_brightness(20);
 
     // Connect to WiFi
-    // strip.set_all(strip.Color(0, 0, 255));
-    // WiFi.begin(SSID, PASSWORD);
+    strip.set_all(strip.Color(0, 0, 255));
+    WiFi.begin(SSID, PASSWORD);
 
-    // Serial.println("Connecting ...");
-    // bool ledState = true;
-    // while (WiFi.status() != WL_CONNECTED)
-    // {
-    //     delay(100);
-    //     Serial.print(".");
-    //     if (ledState)
-    //     {
-    //         strip.set_all(strip.Color(0, 0, 255));
-    //     }
-    //     else
-    //     {
-    //         strip.off();
-    //     }
-    //     ledState = !ledState;
-    // }
+    Serial.println("Connecting ...");
+    bool ledState = true;
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(100);
+        Serial.print(".");
+        if (ledState)
+        {
+            strip.set_all(strip.Color(0, 0, 255));
+        }
+        else
+        {
+            strip.off();
+        }
+        ledState = !ledState;
+    
+    // configure static IP
+    if (!WiFi.config(IPAddress(LOCAL_IP), IPAddress(GATEWAY), IPAddress(SUBNET), IPAddress(DNS)))
+    {
+        strip.set_all(strip.Color(255, 0, 0));
+        for (;;) { delay(10); };
+    }}
 
-    // Serial.print("\nConnected with IP address: ");
-    // Serial.println(WiFi.localIP());
+    // begin OTA
+    ArduinoOTA.begin();
+
+    Serial.print("\nConnected with IP address: ");
+    Serial.println(WiFi.localIP());
 
     Serial.println("Setup done");
     strip.set_all(strip.Color(0, 255, 0));
@@ -72,6 +86,10 @@ bool in_segment_control = false;
 uint8_t current_segment = 0;
 void loop()
 {
+    // handle OTA requests
+    ArduinoOTA.handle();
+
+    // handle remote
     if (remote.decode(&results) && true)
     {
         ir_protocols::SmallRemote::Buttons btn = static_cast<ir_protocols::SmallRemote::Buttons>(results.value);
