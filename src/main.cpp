@@ -27,6 +27,34 @@ sensors::IRRemote remote(IR_PIN);
 decode_results results;
 actors::LEDs strip(NUM_LEDS, LED_PIN, WW_PIN);
 
+
+void reconnect_wifi()
+{
+    if (WiFi.status() == WL_CONNECTED)
+        return;
+
+    strip.save_segment_colors();
+    strip.set_segment_color(0, strip.Color(64, 64, 255));
+    strip.set_segment_brightness(0, 127, true);
+
+    WiFi.disconnect();
+    WiFi.begin(SSID, PASSWORD);
+
+    unsigned long start = millis();
+
+    while (WiFi.status() != WL_CONNECTED &&
+           millis() - start < 10000)
+    {
+        delay(50);
+        strip.set_segment_brightness(0, 127, true);
+        delay(50);
+        strip.set_segment_brightness(0, 0, true);
+    }
+
+    strip.reload_segment_colors();
+}
+
+
 // -------------------- Setup --------------------
 void setup()
 {
@@ -86,6 +114,9 @@ bool in_segment_control = false;
 uint8_t current_segment = 0;
 void loop()
 {
+    // check wifi connectivity
+    reconnect_wifi();
+
     // handle OTA requests
     ArduinoOTA.handle();
 
