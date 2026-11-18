@@ -445,6 +445,10 @@ void LEDs::set_remote(ir_protocols::SmallRemote::Buttons button)
                 void_fade();
                 break;
 
+            case ir_protocols::SmallRemote::Buttons::Action4:
+                wleds.toggle_main();
+                break;
+
             default:
                 // try to match button to color
                 color_t btn_color = button_to_color(button);

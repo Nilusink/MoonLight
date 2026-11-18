@@ -34,10 +34,12 @@ namespace actors
         void set_state(bool state, int8_t segment);
 
         void on();
+        void main_on();
         void off();
 
         // segment control
         void toggle_segment();
+        void toggle_main();
     };
         
 } // namespace actors
